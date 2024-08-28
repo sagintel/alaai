@@ -305,7 +305,7 @@ export default function Home() {
                 {isLoading && (
                   <div className="flex justify-start">
                     <div className="bg-[#2b2b2b] text-white p-3 rounded-sm">
-                      AI is thinking{loadingDots}
+                      Typing{loadingDots}
                     </div>
                   </div>
                 )}
