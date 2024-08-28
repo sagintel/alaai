@@ -1,4 +1,4 @@
-Marketing chatbot with advanced AI capabilities: <br><br>
+Marketing chatbot with advanced AI capabilities: <br>
 1.Marketing focus: Tailored to assist with marketing tasks, strategies, and inquiries. <br>
 2.RAG (Retrieval-Augmented Generation): Enhances responses with relevant marketing knowledge and data. <br>
 3.Memory: Maintains context across conversations for personalized marketing advice. <br>
