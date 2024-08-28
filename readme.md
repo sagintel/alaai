@@ -6,7 +6,7 @@
 
 <strong>Installation:<strong><br>
 1. npm install <br>
-2. paste you api key from Google Ai Studio in the .env file <br>
+2. paste your api key from Google Ai Studio in the .env file <br>
 3. npm run dev (to run frontend) <br>
 4. npm run start (to run backend) <br>
 5. Enjoy! 
