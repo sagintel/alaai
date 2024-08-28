@@ -10,3 +10,8 @@
 3. npm run dev (to run frontend) <br>
 4. npm run start (to run backend) <br>
 5. Enjoy! 
+
+Try it here:
+https://alaai.vercel.app/
+
+Give it a star if you like it ⭐
