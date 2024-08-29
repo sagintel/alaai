@@ -105,9 +105,14 @@ export default function Home() {
           'Content-Type': 'application/json'
         }
       };
-      const response = await fetch('http://localhost:8000/gemini', options);
+      
+      // Use the environment variable for the API URL
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/gemini';
+
+      const response = await fetch(apiUrl, options);
+      
       if (!response.ok) {
-        throw new Error(await response.text());
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
       const responseData = await response.text();
       const updatedHistory = [
@@ -134,7 +139,7 @@ export default function Home() {
       }
     } catch (error) {
       console.error('Error:', error);
-      setError(error.message || "An error occurred. Please try asking a different question.");
+      setError(`An error occurred: ${error.message}. Please try again.`);
     } finally {
       setIsLoading(false);
     }
@@ -305,7 +310,7 @@ export default function Home() {
                 {isLoading && (
                   <div className="flex justify-start">
                     <div className="bg-[#2b2b2b] text-white p-3 rounded-sm">
-                      Typing{loadingDots}
+                      AI is thinking{loadingDots}
                     </div>
                   </div>
                 )}
