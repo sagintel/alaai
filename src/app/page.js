@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useState, useRef, useEffect } from "react";
+import { FaPencilAlt, FaHeading, FaListUl, FaQuoteRight, FaBolt, FaBullhorn, FaHashtag, FaUserAstronaut } from 'react-icons/fa';
 
 export default function Home() {
   const [value, setValue] = useState("");
@@ -15,6 +16,7 @@ export default function Home() {
   const [loadingDots, setLoadingDots] = useState('');
   const [data, setData] = useState({});
   const sidebarRef = useRef(null);
+  const [showPromptBoxes, setShowPromptBoxes] = useState(true);
 
   // Load workspaces and current workspace on component mount
   useEffect(() => {
@@ -51,9 +53,18 @@ export default function Home() {
   };
 
   const createNewWorkspace = (title = null) => {
+    let truncatedTitle = title;
+    if (title) {
+      const words = title.split(' ');
+      truncatedTitle = words.slice(0, 4).join(' ');
+      if (words.length > 4) {
+        truncatedTitle += '...';
+      }
+    }
+
     const newWorkspace = {
       id: Date.now(),
-      name: title || `Workspace ${workspaces.length + 1}`,
+      name: truncatedTitle || `Workspace ${workspaces.length + 1}`,
       history: []
     };
     setWorkspaces(prevWorkspaces => {
@@ -63,34 +74,36 @@ export default function Home() {
     });
     setCurrentWorkspace(newWorkspace);
     setChatHistory([]);
+    setShowPromptBoxes(true); // Reset showPromptBoxes to true
     localStorage.setItem('currentWorkspaceId', newWorkspace.id.toString());
     return newWorkspace;
   };
 
-  const getResponse = async () => {
-    if (!value.trim()) {
+  const getResponse = async (message = value) => {
+    if (!message.trim()) {
       setError("Error! Please ask a question");
       return;
     }
     setError("");
+    setShowPromptBoxes(false); // Hide prompt boxes when sending a message
 
     // Create a new workspace if there's no current workspace
     if (!currentWorkspace) {
-      const newWorkspace = createNewWorkspace(value);
+      const newWorkspace = createNewWorkspace(message);
       setCurrentWorkspace(newWorkspace);
     }
 
     const isFirstMessage = chatHistory.length === 0;
     const context = getContextFromData(); // Get the context from the fetched data
     const systemInstruction = `Here is some context to help you: ${context}`;
-    const userMessage = isFirstMessage ? systemInstruction + value : value;
+    const userMessage = isFirstMessage ? systemInstruction + message : message;
     setValue(""); // Clear input field immediately
     setIsLoading(true);
 
     try {
       const newHistory = [
         ...chatHistory,
-        { role: "user", parts: value }
+        { role: "user", parts: message }
       ];
       setChatHistory(newHistory);
 
@@ -122,10 +135,15 @@ export default function Home() {
 
       // Update current workspace
       if (currentWorkspace) {
+        let truncatedName = message;
+        const words = message.split(' ');
+        if (words.length > 4) {
+          truncatedName = words.slice(0, 4).join(' ') + '...';
+        }
         const updatedWorkspace = {
           ...currentWorkspace, 
           history: updatedHistory,
-          name: currentWorkspace.history.length === 0 ? value : currentWorkspace.name
+          name: currentWorkspace.history.length === 0 ? truncatedName : currentWorkspace.name
         };
         setCurrentWorkspace(updatedWorkspace);
         setWorkspaces(prevWorkspaces => {
@@ -238,6 +256,27 @@ export default function Home() {
     };
   }, [isSidebarOpen]);
 
+  const promptBoxes = [
+    { icon: <FaBolt />, text: "Craft a viral hook" },
+    { icon: <FaBullhorn />, text: "Create persuasive ad copy" },
+    { icon: <FaHashtag />, text: "Generate trending hashtags" },
+    { icon: <FaUserAstronaut />, text: "Develop brand persona" },
+  ];
+
+  const detailedPrompts = {
+    "Craft a viral hook": "You are a social media expert, and I need your help crafting a viral hook for my product. Create an attention-grabbing opening line or concept that will make people want to learn more and share with others.",
+    "Create persuasive ad copy": "You are a copywriting genius, and I need your help creating persuasive ad copy. Write a compelling advertisement that highlights the key benefits of my product and convinces the reader to take action.",
+    "Generate trending hashtags": "You are a social media trend analyst, and I need your help generating trending hashtags. Create a list of 5-10 potential hashtags that could go viral and increase visibility for my brand or campaign.",
+    "Develop brand persona": "You are a brand strategist, and I need your help developing a brand persona. Create a detailed description of my brand's personality, voice, and values as if it were a real person. Include traits that will resonate with my target audience."
+  };
+
+  const handlePromptClick = (prompt) => {
+    const detailedPrompt = detailedPrompts[prompt] || prompt;
+    setValue(detailedPrompt);
+    getResponse(detailedPrompt);
+    setShowPromptBoxes(false);
+  };
+
   return (
     <div className="flex h-screen w-full bg-[#1e1e1e] text-white overflow-hidden">
       {/* Sidebar */}
@@ -262,6 +301,7 @@ export default function Home() {
                 onClick={() => {
                   setCurrentWorkspace(workspace);
                   setChatHistory(workspace.history || []);
+                  setShowPromptBoxes(workspace.history.length === 0); // Show prompt boxes if workspace is empty
                 }}
                 className={`flex-grow text-left p-2 rounded-none ${
                   currentWorkspace?.id === workspace.id ? 'bg-[#4a4a4a]' : 'bg-[#3a3a3a] hover:bg-[#4a4a4a]'
@@ -295,31 +335,44 @@ export default function Home() {
 
         <main className="flex-grow overflow-auto p-4 pt-16">
           <div className="max-w-3xl mx-auto space-y-4">
-            {chatHistory.length > 0 ? (
-              <>
-                {chatHistory.map((chatItem, index) => (
-                  <div key={index} className={`flex ${chatItem.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[70%] p-3 rounded-sm ${
-                      chatItem.role === 'user' ? 'bg-[#3a3a3a] text-white' : 'bg-[#2b2b2b] text-white'
-                    }`}>
-                      {renderFormattedMessage(chatItem.parts)}
-                    </div>
-                  </div>
+            <div className="mb-8">
+              <p className="text-4xl font-bold text-gray-300 text-center">Welcome</p>
+            </div>
+            
+            {showPromptBoxes && (
+              <div className="grid grid-cols-2 gap-4 mb-8 max-w-lg mx-auto">
+                {promptBoxes.map((box, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handlePromptClick(box.text)}
+                    className="bg-[#161616] hover:bg-[#2b2b2b] text-white p-3 rounded-lg flex flex-col items-center justify-center transition duration-300 h-24"
+                  >
+                    <div className="text-xl mb-2">{box.icon}</div>
+                    <p className="text-xs text-center">{box.text}</p>
+                  </button>
                 ))}
-                {isLoading && (
-                  <div className="flex justify-start">
-                    <div className="bg-[#2b2b2b] text-white p-3 rounded-sm">
-                      AI is thinking{loadingDots}
-                    </div>
-                  </div>
-                )}
-                <div ref={chatEndRef} />
-              </>
-            ) : (
-              <div className="flex-grow flex items-center justify-center p-4 text-center h-full">
-                <p className="text-4xl font-bold text-gray-300">Welcome</p>
               </div>
             )}
+
+            <div className="space-y-4">
+              {chatHistory.map((chatItem, index) => (
+                <div key={index} className={`flex ${chatItem.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[70%] p-3 rounded-sm ${
+                    chatItem.role === 'user' ? 'bg-[#3a3a3a] text-white' : 'bg-[#2b2b2b] text-white'
+                  }`}>
+                    {renderFormattedMessage(chatItem.parts)}
+                  </div>
+                </div>
+              ))}
+              {isLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-[#2b2b2b] text-white p-3 rounded-sm">
+                    Thinking{loadingDots}
+                  </div>
+                </div>
+              )}
+              <div ref={chatEndRef} />
+            </div>
           </div>
         </main>
         <footer className="bg-[#1e1e1e] p-4">
@@ -343,6 +396,10 @@ export default function Home() {
               </button>
             </form>
             {error && <p className="text-red-500 mt-2">{error}</p>}
+            <div className="mt-4 text-center text-sm text-gray-400">
+              <p>© 2024 All rights reserved.</p>
+              <p>Follow me on Instagram: <a href="https://www.instagram.com/alaalkalai" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">@alaalkalai</a></p>
+            </div>
           </div>
         </footer>
       </div>
