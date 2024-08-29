@@ -1,8 +1,8 @@
 'use client'
 
 import React from 'react';
-import { useState, useRef, useEffect } from "react";
-import { FaPencilAlt, FaHeading, FaListUl, FaQuoteRight, FaBolt, FaBullhorn, FaHashtag, FaUserAstronaut } from 'react-icons/fa';
+import { useState, useRef, useEffect, useCallback } from "react";
+import { FaPencilAlt, FaHeading, FaListUl, FaQuoteRight, FaBolt, FaBullhorn, FaHashtag, FaUserAstronaut, FaGlobe, FaPaperPlane, FaLanguage, FaBars, FaChevronLeft, FaTimes } from 'react-icons/fa';
 
 export default function Home() {
   const [value, setValue] = useState("");
@@ -17,6 +17,8 @@ export default function Home() {
   const [data, setData] = useState({});
   const sidebarRef = useRef(null);
   const [showPromptBoxes, setShowPromptBoxes] = useState(true);
+  const [language, setLanguage] = useState('en');
+  const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
 
   // Load workspaces and current workspace on component mount
   useEffect(() => {
@@ -79,9 +81,15 @@ export default function Home() {
     return newWorkspace;
   };
 
+  const translateMessage = async (message, targetLang) => {
+    // This is a placeholder. You should implement actual translation logic here.
+    // For now, we'll just return the original message.
+    return message;
+  };
+
   const getResponse = async (message = value) => {
     if (!message.trim()) {
-      setError("Error! Please ask a question");
+      setError(t("askQuestion"));
       return;
     }
     setError("");
@@ -127,9 +135,15 @@ export default function Home() {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const responseData = await response.json();
+      let translatedResponse = responseData.text;
+      
+      if (language === 'ar') {
+        translatedResponse = await translateMessage(responseData.text, 'ar');
+      }
+
       const updatedHistory = [
         ...newHistory,
-        { role: "model", parts: responseData.text }
+        { role: "model", parts: translatedResponse }
       ];
       setChatHistory(updatedHistory);
 
@@ -156,7 +170,7 @@ export default function Home() {
       }
     } catch (error) {
       console.error('Error:', error);
-      setError(`An error occurred: ${error.message}. Please try again.`);
+      setError(t("error"));
     } finally {
       setIsLoading(false);
     }
@@ -207,22 +221,23 @@ export default function Home() {
     return lines.map((line, lineIndex) => {
       const parts = line.split(/(\*\*.*?\*\*)/);
       return (
-        <React.Fragment key={lineIndex}>
-          {parts.map((part, partIndex) => {
+        React.createElement(React.Fragment, { key: lineIndex },
+          parts.map((part, partIndex) => {
             if (part.startsWith('**') && part.endsWith('**')) {
-              return <strong key={partIndex}>{part.slice(2, -2)}</strong>;
+              return React.createElement('strong', { key: partIndex }, part.slice(2, -2));
             } else if (part.trim().startsWith('*')) {
               return (
-                <React.Fragment key={partIndex}>
-                  <br />• {part.trim().slice(1).trim()}
-                </React.Fragment>
+                React.createElement(React.Fragment, { key: partIndex }, [
+                  React.createElement('br', { key: 'br' }),
+                  `• ${part.trim().slice(1).trim()}`
+                ])
               );
             } else {
-              return <React.Fragment key={partIndex}>{part}</React.Fragment>;
+              return React.createElement(React.Fragment, { key: partIndex }, part);
             }
-          })}
-          <br />
-        </React.Fragment>
+          }),
+          React.createElement('br', { key: 'lineBreak' })
+        )
       );
     });
   };
@@ -257,152 +272,243 @@ export default function Home() {
   }, [isSidebarOpen]);
 
   const promptBoxes = [
-    { icon: <FaBolt />, text: "Craft a viral hook" },
-    { icon: <FaBullhorn />, text: "Create persuasive ad copy" },
-    { icon: <FaHashtag />, text: "Generate trending hashtags" },
-    { icon: <FaUserAstronaut />, text: "Develop brand persona" },
+    { icon: <FaBolt />, text: "craftViralHook" },
+    { icon: <FaBullhorn />, text: "createPersuasiveAdCopy" },
+    { icon: <FaHashtag />, text: "generateTrendingHashtags" },
+    { icon: <FaUserAstronaut />, text: "developBrandPersona" },
   ];
 
   const detailedPrompts = {
-    "Craft a viral hook": "You are a social media expert, and I need your help crafting a viral hook for my product. Create an attention-grabbing opening line or concept that will make people want to learn more and share with others.",
-    "Create persuasive ad copy": "You are a copywriting genius, and I need your help creating persuasive ad copy. Write a compelling advertisement that highlights the key benefits of my product and convinces the reader to take action.",
-    "Generate trending hashtags": "You are a social media trend analyst, and I need your help generating trending hashtags. Create a list of 5-10 potential hashtags that could go viral and increase visibility for my brand or campaign.",
-    "Develop brand persona": "You are a brand strategist, and I need your help developing a brand persona. Create a detailed description of my brand's personality, voice, and values as if it were a real person. Include traits that will resonate with my target audience."
+    en: {
+      craftViralHook: "You are a social media expert, and I need your help crafting a viral hook for my product. Create an attention-grabbing opening line or concept that will make people want to learn more and share with others.",
+      createPersuasiveAdCopy: "You are a copywriting genius, and I need your help creating persuasive ad copy. Write a compelling advertisement that highlights the key benefits of my product and convinces the reader to take action.",
+      generateTrendingHashtags: "You are a social media trend analyst, and I need your help generating trending hashtags. Create a list of 5-10 potential hashtags that could go viral and increase visibility for my brand or campaign.",
+      developBrandPersona: "You are a brand strategist, and I need your help developing a brand persona. Create a detailed description of my brand's personality, voice, and values as if it were a real person. Include traits that will resonate with my target audience."
+    },
+    ar: {
+      craftViralHook: "أنت خبير في وسائل التواصل الاجتماعي. ساعدني في صياغة عنوان جذاب لمنتجي. ابتكر جملة افتتاحية أو فكرة تلفت الانتباه وتحفز الناس على معرفة المزيد ومشاركتها مع الآخرين.",
+      createPersuasiveAdCopy: "أنت خبير في كتابة النصوص الإعلانية. ساعدني في إنشاء نص إعلاني مقنع. اكتب إعلانًا مؤثرًا يبرز المزايا الرئيسية لمنتجي ويحث القارئ على اتخاذ إجراء.",
+      generateTrendingHashtags: "أنت محلل لاتجاهات وسائل التواصل الاجتماعي. ساعدني في إنشاء هاشتاغات رائجة. قم بإنشاء قائمة من 5-10 هاشتاغات محتملة يمكن أن تنتشر بسرعة وتزيد من ظهور علامتي التجارية أو حملتي.",
+      developBrandPersona: "أنت خبير في استراتيجيات العلامات التجارية. ساعدني في تطوير شخصية للعلامة التجارية. قم بإنشاء وصف مفصل لشخصية علامتي التجارية وصوتها وقيمها كما لو كانت شخصًا حقيقيًا. أضف سمات ستجذب جمهوري المستهدف."
+    }
   };
 
-  const handlePromptClick = (prompt) => {
-    const detailedPrompt = detailedPrompts[prompt] || prompt;
+  const handlePromptClick = (promptKey) => {
+    const detailedPrompt = detailedPrompts[language][promptKey] || t(promptKey);
     setValue(detailedPrompt);
     getResponse(detailedPrompt);
     setShowPromptBoxes(false);
   };
 
-  return (
-    <div className="flex h-screen w-full bg-[#1e1e1e] text-white overflow-hidden">
-      {/* Sidebar */}
-      <div 
-        ref={sidebarRef}
-        className={`fixed inset-y-0 left-0 z-30 w-64 bg-[#161616] p-4 flex flex-col transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out`}
-      >
-        <button onClick={toggleSidebar} className="absolute top-4 right-4 text-white hover:text-gray-300">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-        <h1 className="text-lg font-semibold mb-4 text-white">Workspaces</h1>
-        <button onClick={() => createNewWorkspace()} className="bg-[#3a3a3a] hover:bg-[#4a4a4a] text-white font-bold py-2 px-4 rounded-sm mb-2 flex items-center">
-          <span className="mr-2">+</span>
-          New workspace
-        </button>
-        <div className="flex-grow overflow-auto">
-          {workspaces.map(workspace => (
-            <div key={workspace.id} className="flex items-center mb-1">
-              <button
-                onClick={() => {
-                  setCurrentWorkspace(workspace);
-                  setChatHistory(workspace.history || []);
-                  setShowPromptBoxes(workspace.history.length === 0); // Show prompt boxes if workspace is empty
-                }}
-                className={`flex-grow text-left p-2 rounded-none ${
-                  currentWorkspace?.id === workspace.id ? 'bg-[#4a4a4a]' : 'bg-[#3a3a3a] hover:bg-[#4a4a4a]'
-                }`}
-              >
-                {workspace.name}
-              </button>
-              <button
-                onClick={() => deleteWorkspace(workspace.id)}
-                className="bg-[#3a3a3a] hover:bg-[#4a4a4a] text-white p-2 rounded-none"
-                title="Delete workspace"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
-              </button>
-            </div>
-          ))}
-        </div>
-        {/* ... other sidebar buttons ... */}
-      </div>
+  const handleLanguageSelect = (lang) => {
+    setLanguage(lang);
+    setShowLanguageDropdown(false);
+  };
 
-      {/* Main content */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-[#1e1e1e]">
-        {/* Sidebar toggle button - Remove md:hidden class */}
-        <button onClick={toggleSidebar} className="absolute top-4 left-4 z-20 bg-[#3a3a3a] p-2 rounded-sm">
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
+  const translations = {
+    en: {
+      newWorkspace: "New workspace",
+      workspaces: "Workspaces",
+      welcome: "Welcome to Kyro",
+      typeMessage: "Type your message...",
+      send: "Send",
+      rights: "All rights reserved.",
+      followMe: "Follow me on Instagram:",
+      craftViralHook: "Craft a viral hook",
+      createPersuasiveAdCopy: "Create persuasive ad copy",
+      generateTrendingHashtags: "Generate trending hashtags",
+      developBrandPersona: "Develop brand persona",
+      thinking: "Thinking",
+      error: "An error occurred. Please try again.",
+      askQuestion: "Error! Please ask a question"
+    },
+    ar: {
+      newWorkspace: "مساحة عمل جديدة",
+      workspaces: "مساحات العمل",
+      welcome: "مرحبًا بك في كايرو",
+      typeMessage: "اكتب رسالتك...",
+      send: "إرسال",
+      rights: "جميع الحقوق محفوظة.",
+      followMe: "تابعني على انستغرام:",
+      craftViralHook: "صياغة عنوان جذاب",
+      createPersuasiveAdCopy: "إنشاء نص إعلاني مقنع",
+      generateTrendingHashtags: "إنشاء هاشتاغات رائجة",
+      developBrandPersona: "تطوير شخصية العلامة التجارية",
+      thinking: "جاري التفكير",
+      error: "حدث خطأ! يرجى المحاولة مرة أخرى.",
+      askQuestion: "خطأ! يرجى طرح سؤال"
+    }
+  };
 
-        <main className="flex-grow overflow-auto p-4 pt-16">
-          <div className="max-w-3xl mx-auto space-y-4">
-            <div className="mb-8">
-              <p className="text-4xl font-bold text-gray-300 text-center">Welcome to Kyro</p>
-            </div>
-            
-            {showPromptBoxes && (
-              <div className="grid grid-cols-2 gap-4 mb-8 max-w-lg mx-auto">
-                {promptBoxes.map((box, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handlePromptClick(box.text)}
-                    className="bg-[#161616] hover:bg-[#2b2b2b] text-white p-3 rounded-lg flex flex-col items-center justify-center transition duration-300 h-24"
-                  >
-                    <div className="text-xl mb-2">{box.icon}</div>
-                    <p className="text-xs text-center">{box.text}</p>
-                  </button>
-                ))}
-              </div>
-            )}
+  const t = (key) => translations[language][key] || key;
 
-            <div className="space-y-4">
-              {chatHistory.map((chatItem, index) => (
-                <div key={index} className={`flex ${chatItem.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[70%] p-3 rounded-sm ${
-                    chatItem.role === 'user' ? 'bg-[#3a3a3a] text-white' : 'bg-[#2b2b2b] text-white'
-                  }`}>
-                    {renderFormattedMessage(chatItem.parts)}
-                  </div>
-                </div>
-              ))}
-              {isLoading && (
-                <div className="flex justify-start">
-                  <div className="bg-[#2b2b2b] text-white p-3 rounded-sm">
-                    Thinking{loadingDots}
-                  </div>
-                </div>
-              )}
-              <div ref={chatEndRef} />
-            </div>
-          </div>
-        </main>
-        <footer className="bg-[#1e1e1e] p-4">
-          <div className="max-w-3xl mx-auto">
-            <form onSubmit={(e) => { e.preventDefault(); getResponse(); }} className="flex items-center gap-2">
-              <input
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-                className="flex-grow p-3 bg-[#2b2b2b] text-white border border-[#3a3a3a] rounded-sm focus:outline-none focus:ring-2 focus:ring-[#4a4a4a]"
-                placeholder="Type your message..."
-                id="message-input"
-              />
-              <button 
-                type="submit"
-                disabled={isLoading}
-                className="bg-[#3a3a3a] hover:bg-[#4a4a4a] text-white font-semibold p-3 rounded-sm transition duration-300 disabled:opacity-50"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 transform rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                </svg>
-              </button>
-            </form>
-            {error && <p className="text-red-500 mt-2">{error}</p>}
-            <div className="mt-4 text-center text-sm text-gray-400">
-              <p>© 2024 All rights reserved.</p>
-              <p>Follow me on Instagram: <a href="https://www.instagram.com/alaalkalai" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">@alaalkalai</a></p>
-            </div>
-          </div>
-        </footer>
-      </div>
-    </div>
-  );
+  const renderPromptBoxes = () => {
+    if (!showPromptBoxes) return null;
+
+    return React.createElement('div', { className: "grid grid-cols-2 gap-4 mb-8 max-w-lg mx-auto" },
+      promptBoxes.map((box, index) => 
+        React.createElement('button', {
+          key: index,
+          onClick: () => handlePromptClick(box.text),
+          className: "bg-[#161616] hover:bg-[#2b2b2b] text-white p-3 rounded-lg flex flex-col items-center justify-center transition duration-300 h-24"
+        }, [
+          React.createElement('div', { className: "text-xl mb-2", key: 'icon' }, box.icon),
+          React.createElement('p', { className: "text-xs text-center", key: 'text' }, t(box.text))
+        ])
+      )
+    );
+  };
+
+  const renderChatHistory = () => {
+    return React.createElement('div', { className: "space-y-4" },
+      chatHistory.map((chatItem, index) => 
+        React.createElement('div', {
+          key: index,
+          className: `flex ${chatItem.role === 'user' ? 'justify-end' : 'justify-start'}`
+        },
+          React.createElement('div', {
+            className: `max-w-[70%] p-3 rounded-sm ${
+              chatItem.role === 'user' ? 'bg-[#3a3a3a] text-white' : 'bg-[#2b2b2b] text-white'
+            }`
+          }, renderFormattedMessage(chatItem.parts))
+        )
+      ),
+      isLoading && React.createElement('div', { className: "flex justify-start" },
+        React.createElement('div', { className: "bg-[#2b2b2b] text-white p-3 rounded-sm" },
+          `${t('thinking')}${loadingDots}`
+        )
+      ),
+      React.createElement('div', { ref: chatEndRef })
+    );
+  };
+
+  const renderForm = () => {
+    return React.createElement('form', {
+      onSubmit: (e) => { e.preventDefault(); getResponse(); },
+      className: "flex items-center gap-2"
+    }, [
+      React.createElement('input', {
+        value: value,
+        onChange: (e) => setValue(e.target.value),
+        className: "flex-grow p-3 bg-[#2b2b2b] text-white border border-[#3a3a3a] rounded-sm focus:outline-none focus:ring-2 focus:ring-[#4a4a4a]",
+        placeholder: t('typeMessage'),
+        id: "message-input",
+        key: 'input'
+      }),
+      React.createElement('button', {
+        type: "submit",
+        disabled: isLoading,
+        className: "bg-[#3a3a3a] hover:bg-[#4a4a4a] text-white font-semibold p-3 rounded-sm transition duration-300 disabled:opacity-50",
+        key: 'button'
+      }, React.createElement(FaPaperPlane, { className: "w-6 h-6" }))
+    ]);
+  };
+
+  const renderSidebar = () => {
+    return React.createElement('div', {
+      ref: sidebarRef,
+      className: `fixed inset-y-0 left-0 z-30 w-64 bg-[#161616] p-4 flex flex-col transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out`
+    }, [
+      React.createElement('button', {
+        onClick: toggleSidebar,
+        className: "absolute top-4 right-4 text-white hover:text-gray-300"
+      }, React.createElement(FaChevronLeft, { className: "h-6 w-6" })),
+      React.createElement('h1', { className: "text-lg font-semibold mb-4 text-white" }, t('workspaces')),
+      React.createElement('button', {
+        onClick: () => createNewWorkspace(),
+        className: "bg-[#3a3a3a] hover:bg-[#4a4a4a] text-white font-bold py-2 px-4 rounded-sm mb-2 flex items-center"
+      }, [
+        React.createElement('span', { className: "mr-2" }, "+"),
+        t('newWorkspace')
+      ]),
+      React.createElement('div', { className: "flex-grow overflow-auto" },
+        workspaces.map(workspace => 
+          React.createElement('div', { key: workspace.id, className: "flex items-center mb-1" }, [
+            React.createElement('button', {
+              onClick: () => {
+                setCurrentWorkspace(workspace);
+                setChatHistory(workspace.history || []);
+                setShowPromptBoxes(workspace.history.length === 0);
+              },
+              className: `flex-grow text-left p-2 rounded-none ${
+                currentWorkspace?.id === workspace.id ? 'bg-[#4a4a4a]' : 'bg-[#3a3a3a] hover:bg-[#4a4a4a]'
+              }`
+            }, workspace.name),
+            React.createElement('button', {
+              onClick: () => deleteWorkspace(workspace.id),
+              className: "bg-[#3a3a3a] hover:bg-[#4a4a4a] text-white p-2 rounded-none",
+              title: "Delete workspace"
+            }, "X")
+          ])
+        )
+      )
+    ]);
+  };
+
+  return React.createElement('div', {
+    className: `flex h-screen w-full bg-[#1e1e1e] text-white overflow-hidden ${language === 'ar' ? 'font-arabic' : ''}`
+  }, [
+    renderSidebar(),
+    // Language toggle button
+    React.createElement('button', {
+      onClick: () => setShowLanguageDropdown(!showLanguageDropdown),
+      className: "absolute top-4 right-4 z-30 bg-[#3a3a3a] p-2 rounded-sm",
+      key: 'langToggle'
+    }, React.createElement(FaLanguage, { className: "w-6 h-6" })),
+    showLanguageDropdown && React.createElement('div', {
+      className: "absolute top-16 right-4 mt-2 py-2 w-48 bg-[#2b2b2b] rounded-sm shadow-xl z-20"
+    }, [
+      React.createElement('button', {
+        className: "block px-4 py-2 text-sm capitalize text-white hover:bg-[#3a3a3a] w-full text-left",
+        onClick: () => handleLanguageSelect('en'),
+        key: 'en'
+      }, "English"),
+      React.createElement('button', {
+        className: "block px-4 py-2 text-sm capitalize text-white hover:bg-[#3a3a3a] w-full text-left",
+        onClick: () => handleLanguageSelect('ar'),
+        key: 'ar'
+      }, "العربية")
+    ]),
+
+    // Main content
+    React.createElement('div', { className: "flex-1 flex flex-col overflow-hidden bg-[#1e1e1e]", key: 'mainContent' }, [
+      // Sidebar toggle button
+      React.createElement('button', {
+        onClick: toggleSidebar,
+        className: "absolute top-4 left-4 z-20 bg-[#3a3a3a] p-2 rounded-sm",
+        key: 'sidebarToggle'
+      }, React.createElement(FaBars, { className: "w-6 h-6" })),
+
+      // Main content area
+      React.createElement('main', { className: "flex-grow overflow-auto p-4 pt-16", key: 'main' },
+        React.createElement('div', { className: "max-w-3xl mx-auto space-y-4" }, [
+          React.createElement('div', { className: "mb-8", key: 'welcome' },
+            React.createElement('p', { className: "text-4xl font-bold text-gray-300 text-center" }, t('welcome'))
+          ),
+          renderPromptBoxes(),
+          renderChatHistory()
+        ])
+      ),
+
+      // Footer
+      React.createElement('footer', { className: "bg-[#1e1e1e] p-4", key: 'footer' },
+        React.createElement('div', { className: "max-w-3xl mx-auto" }, [
+          renderForm(),
+          error && React.createElement('p', { className: "text-red-500 mt-2", key: 'error' }, t(error)),
+          React.createElement('div', { className: "mt-4 text-center text-sm text-gray-400", key: 'footerText' }, [
+            React.createElement('p', { key: 'rights' }, `© 2024 ${t('rights')}`),
+            React.createElement('p', { key: 'followMe' }, [
+              `${t('followMe')} `,
+              React.createElement('a', {
+                href: "https://www.instagram.com/alaalkalai",
+                target: "_blank",
+                rel: "noopener noreferrer",
+                className: "text-blue-400 hover:underline"
+              }, "@alaalkalai")
+            ])
+          ])
+        ])
+      )
+    ])
+  ]);
 }
