@@ -336,7 +336,7 @@ export default function Home() {
         <main className="flex-grow overflow-auto p-4 pt-16">
           <div className="max-w-3xl mx-auto space-y-4">
             <div className="mb-8">
-              <p className="text-4xl font-bold text-gray-300 text-center">Welcome</p>
+              <p className="text-4xl font-bold text-gray-300 text-center">Welcome to Kyro</p>
             </div>
             
             {showPromptBoxes && (
