@@ -2,7 +2,14 @@ const PORT = 8000
 const express = require('express')
 const cors = require('cors')
 const app = express()
-app.use(cors())
+
+// Update CORS configuration
+app.use(cors({
+  origin: ['http://localhost:3000', 'https://alaai.vercel.app'],
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}))
+
 app.use(express.json())
 require('dotenv').config()
 
@@ -26,10 +33,15 @@ app.post('/gemini', async (req, res) => {
     })
     const msg = req.body.message
 
-    const result = await chat.sendMessage(msg)
-    const response = await result.response
-    const text = response.text()
-    res.send(text)
+    try {
+        const result = await chat.sendMessage(msg)
+        const response = await result.response
+        const text = response.text()
+        res.send(text)
+    } catch (error) {
+        console.error('Error in /gemini endpoint:', error)
+        res.status(500).json({ error: 'An error occurred while processing your request' })
+    }
 })
 
 app.listen(PORT, () => console.log(`Listening on port ${PORT}`))
