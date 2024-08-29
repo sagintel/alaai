@@ -19,6 +19,7 @@ export default function Home() {
   const [showPromptBoxes, setShowPromptBoxes] = useState(true);
   const [language, setLanguage] = useState('en');
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
+  const [selectedPrompt, setSelectedPrompt] = useState(null);
 
   // Load workspaces and current workspace on component mount
   useEffect(() => {
@@ -58,8 +59,8 @@ export default function Home() {
     let truncatedTitle = title;
     if (title) {
       const words = title.split(' ');
-      truncatedTitle = words.slice(0, 4).join(' ');
-      if (words.length > 4) {
+      truncatedTitle = words.slice(0, 2).join(' ');
+      if (words.length > 2) {
         truncatedTitle += '...';
       }
     }
@@ -87,48 +88,59 @@ export default function Home() {
     return message;
   };
 
-  const getResponse = async (message = value) => {
+  const getResponse = async (message = value, isPromptBox = false, promptTitle = null) => {
     if (!message.trim()) {
       setError(t("askQuestion"));
       return;
     }
     setError("");
-    setShowPromptBoxes(false); // Hide prompt boxes when sending a message
+    if (!isPromptBox) {
+      setShowPromptBoxes(false);
+    }
 
-    // Create a new workspace if there's no current workspace
     if (!currentWorkspace) {
       const newWorkspace = createNewWorkspace(message);
       setCurrentWorkspace(newWorkspace);
     }
 
     const isFirstMessage = chatHistory.length === 0;
-    const context = getContextFromData(); // Get the context from the fetched data
-    const systemInstruction = `Here is some context to help you: ${context}`;
+    const context = getContextFromData();
+    const systemInstruction = `Your responses should always be based on this knowledge base: ${context}`;
     const userMessage = isFirstMessage ? systemInstruction + message : message;
-    setValue(""); // Clear input field immediately
+    setValue("");
     setIsLoading(true);
 
     try {
-      const newHistory = [
-        ...chatHistory,
-        { role: "user", parts: message }
-      ];
+      let newHistory;
+      let aiMessage;
+      if (!isPromptBox) {
+        newHistory = [
+          ...chatHistory,
+          { role: "user", parts: message }
+        ];
+        aiMessage = message;
+      } else {
+        newHistory = [
+          ...chatHistory,
+          { role: "user", parts: promptTitle } // Add the prompt title to the chat history
+        ];
+        aiMessage = message; // Use the detailed prompt for the AI
+      }
       setChatHistory(newHistory);
 
       const options = {
         method: "POST",
         body: JSON.stringify({
           history: newHistory,
-          message: userMessage,
-          context: context // Include the context in the request
+          message: aiMessage, // Send the detailed prompt or user message to the AI
+          context: context
         }),
         headers: {
           'Content-Type': 'application/json'
         }
       };
       
-      const apiUrl = '/api/gemini'; // Use the local API route
-
+      const apiUrl = '/api/gemini';
       const response = await fetch(apiUrl, options);
       
       if (!response.ok) {
@@ -146,13 +158,13 @@ export default function Home() {
         { role: "model", parts: translatedResponse }
       ];
       setChatHistory(updatedHistory);
+      setSelectedPrompt(null); // Reset selected prompt after response
 
-      // Update current workspace
       if (currentWorkspace) {
-        let truncatedName = message;
-        const words = message.split(' ');
-        if (words.length > 4) {
-          truncatedName = words.slice(0, 4).join(' ') + '...';
+        let truncatedName = isPromptBox ? promptTitle : message;
+        const words = truncatedName.split(' ');
+        if (words.length > 2) {
+          truncatedName = words.slice(0, 2).join(' ') + '...';
         }
         const updatedWorkspace = {
           ...currentWorkspace, 
@@ -164,13 +176,14 @@ export default function Home() {
           const newWorkspaces = prevWorkspaces.map(w => 
             w.id === updatedWorkspace.id ? updatedWorkspace : w
           );
-          localStorage.setItem('workspaces', JSON.stringify(newWorkspaces)); // Save updated workspaces to localStorage
+          localStorage.setItem('workspaces', JSON.stringify(newWorkspaces));
           return newWorkspaces;
         });
       }
     } catch (error) {
       console.error('Error:', error);
       setError(t("error"));
+      setSelectedPrompt(null); // Reset selected prompt on error
     } finally {
       setIsLoading(false);
     }
@@ -193,10 +206,12 @@ export default function Home() {
         const newCurrentWorkspace = remainingWorkspaces[0];
         setCurrentWorkspace(newCurrentWorkspace);
         setChatHistory(newCurrentWorkspace.history || []);
+        setShowPromptBoxes(newCurrentWorkspace.history.length === 0);
         localStorage.setItem('currentWorkspaceId', newCurrentWorkspace.id.toString());
       } else {
         setCurrentWorkspace(null);
         setChatHistory([]);
+        setShowPromptBoxes(true);
         localStorage.removeItem('currentWorkspaceId');
       }
     }
@@ -210,8 +225,10 @@ export default function Home() {
     let interval;
     if (isLoading) {
       interval = setInterval(() => {
-        setLoadingDots(dots => (dots.length >= 3 ? '' : dots + '.'));
-      }, 500);
+        setLoadingDots(dots => dots.length >= 3 ? '.' : dots + '.');
+      }, 300);
+    } else {
+      setLoadingDots('');
     }
     return () => clearInterval(interval);
   }, [isLoading]);
@@ -280,24 +297,25 @@ export default function Home() {
 
   const detailedPrompts = {
     en: {
-      craftViralHook: "You are a social media expert, and I need your help crafting a viral hook for my product. Create an attention-grabbing opening line or concept that will make people want to learn more and share with others.",
-      createPersuasiveAdCopy: "You are a copywriting genius, and I need your help creating persuasive ad copy. Write a compelling advertisement that highlights the key benefits of my product and convinces the reader to take action.",
-      generateTrendingHashtags: "You are a social media trend analyst, and I need your help generating trending hashtags. Create a list of 5-10 potential hashtags that could go viral and increase visibility for my brand or campaign.",
-      developBrandPersona: "You are a brand strategist, and I need your help developing a brand persona. Create a detailed description of my brand's personality, voice, and values as if it were a real person. Include traits that will resonate with my target audience."
+      craftViralHook: "You are a social media expert, and I need your help crafting a viral hook for my product. Ask simple clarifying questions one at a time—ask a question, wait for the response, then proceed to the next question. Gather all the necessary information about the product and target audience before providing a tailored answer or solution. Then, create an attention-grabbing opening line or concept that will make people want to learn more and share with others.",
+      createPersuasiveAdCopy: "You are a copywriting genius, and I need your help creating persuasive ad copy. Ask simple clarifying questions one at a time—ask a question, wait for the response, then proceed to the next question. Gather all the necessary information about the product and its benefits before providing a tailored answer or solution. Then, write a compelling advertisement that highlights the key benefits of my product and convinces the reader to take action.",
+      generateTrendingHashtags: "You are a social media trend analyst, and I need your help generating trending hashtags. Ask simple clarifying questions one at a time—ask a question, wait for the response, then proceed to the next question. Gather all the necessary information about the campaign or brand before providing a tailored answer or solution. Then, create a list of 5-10 potential hashtags that could go viral and increase visibility for my brand or campaign.",
+      developBrandPersona: "You are a brand strategist, and I need your help developing a brand persona. Ask simple clarifying questions one at a time—ask a question, wait for the response, then proceed to the next question. Gather all the necessary information about the brand's values and target audience before providing a tailored answer or solution. Then, create a detailed description of my brand's personality, voice, and values as if it were a real person. Include traits that will resonate with my target audience."
     },
     ar: {
-      craftViralHook: "أنت خبير في وسائل التواصل الاجتماعي. ساعدني في صياغة عنوان جذاب لمنتجي. ابتكر جملة افتتاحية أو فكرة تلفت الانتباه وتحفز الناس على معرفة المزيد ومشاركتها مع الآخرين.",
-      createPersuasiveAdCopy: "أنت خبير في كتابة النصوص الإعلانية. ساعدني في إنشاء نص إعلاني مقنع. اكتب إعلانًا مؤثرًا يبرز المزايا الرئيسية لمنتجي ويحث القارئ على اتخاذ إجراء.",
-      generateTrendingHashtags: "أنت محلل لاتجاهات وسائل التواصل الاجتماعي. ساعدني في إنشاء هاشتاغات رائجة. قم بإنشاء قائمة من 5-10 هاشتاغات محتملة يمكن أن تنتشر بسرعة وتزيد من ظهور علامتي التجارية أو حملتي.",
-      developBrandPersona: "أنت خبير في استراتيجيات العلامات التجارية. ساعدني في تطوير شخصية للعلامة التجارية. قم بإنشاء وصف مفصل لشخصية علامتي التجارية وصوتها وقيمها كما لو كانت شخصًا حقيقيًا. أضف سمات ستجذب جمهوري المستهدف."
+      craftViralHook: "أنت خبير في وسائل التواصل الاجتماعي، وأحتاج مساعدتك في صياغة عنوان جذاب لمنتجي. اطرح أسئلة توضيحية بسيطة واحدة تلو الأخرى—اطرح سؤالًا، انتظر الرد، ثم انتقل إلى السؤال التالي. اجمع كل المعلومات اللازمة عن المنتج والجمهور المستهدف قبل تقديم إجابة أو حل مخصص. ثم ابتكر جملة افتتاحية أو فكرة تلفت الانتباه وتحفز الناس على معرفة المزيد ومشاركتها مع الآخرين.",
+      createPersuasiveAdCopy: "أنت عبقري في كتابة النصوص الإعلانية، وأحتاج إلى مساعدتك في إنشاء نص إعلاني مقنع. اطرح أسئلة توضيحية بسيطة واحدة تلو الأخرى—اطرح سؤالًا، انتظر الرد، ثم انتقل إلى السؤال التالي. اجمع كل المعلومات اللازمة عن المنتج وفوائده قبل تقديم إجابة أو حل مخصص. ثم اكتب إعلانًا مؤثرًا يبرز المزايا الرئيسية لمنتجي ويحث القارئ على اتخاذ إجراء.",
+      generateTrendingHashtags: "أنت محلل اتجاهات في وسائل التواصل الاجتماعي، وأحتاج مساعدتك في إنشاء هاشتاغات رائجة. اطرح أسئلة توضيحية بسيطة واحدة تلو الأخرى—اطرح سؤالًا، انتظر الرد، ثم انتقل إلى السؤال التالي. اجمع كل المعلومات اللازمة عن الحملة أو العلامة التجارية قبل تقديم إجابة أو حل مخصص. ثم قم بإنشاء قائمة من 5-10 هاشتاغات محتملة يمكن أن تصبح شائعة وتزيد من ظهور علامتي التجارية أو حملتي.",
+      developBrandPersona: "أنت استراتيجي علامات تجارية، وأحتاج مساعدتك في تطوير شخصية للعلامة التجارية. اطرح أسئلة توضيحية بسيطة واحدة تلو الأخرى—اطرح سؤالًا، انتظر الرد، ثم انتقل إلى السؤال التالي. اجمع كل المعلومات اللازمة عن قيم العلامة التجارية والجمهور المستهدف قبل تقديم إجابة أو حل مخصص. ثم أنشئ وصفًا مفصلًا لشخصية علامتي التجارية وصوتها وقيمها وكأنها شخص حقيقي. أضف سمات ستجذب جمهوري المستهدف."
     }
-  };
+  };   
 
   const handlePromptClick = (promptKey) => {
-    const detailedPrompt = detailedPrompts[language][promptKey] || t(promptKey);
-    setValue(detailedPrompt);
-    getResponse(detailedPrompt);
-    setShowPromptBoxes(false);
+    setSelectedPrompt(promptKey);
+    setIsLoading(true);
+    const detailedPrompt = detailedPrompts[language][promptKey];
+    const promptTitle = t(promptKey);
+    getResponse(detailedPrompt, true, promptTitle);
   };
 
   const handleLanguageSelect = (lang) => {
@@ -318,14 +336,13 @@ export default function Home() {
       createPersuasiveAdCopy: "Create persuasive ad copy",
       generateTrendingHashtags: "Generate trending hashtags",
       developBrandPersona: "Develop brand persona",
-      thinking: "Thinking",
       error: "An error occurred. Please try again.",
       askQuestion: "Error! Please ask a question"
     },
     ar: {
       newWorkspace: "مساحة عمل جديدة",
       workspaces: "مساحات العمل",
-      welcome: "مرحبًا بك في كايرو",
+      welcome: "مرحبًا بك في كيرو",
       typeMessage: "اكتب رسالتك...",
       send: "إرسال",
       rights: "جميع الحقوق محفوظة.",
@@ -334,7 +351,6 @@ export default function Home() {
       createPersuasiveAdCopy: "إنشاء نص إعلاني مقنع",
       generateTrendingHashtags: "إنشاء هاشتاغات رائجة",
       developBrandPersona: "تطوير شخصية العلامة التجارية",
-      thinking: "جاري التفكير",
       error: "حدث خطأ! يرجى المحاولة مرة أخرى.",
       askQuestion: "خطأ! يرجى طرح سؤال"
     }
@@ -343,17 +359,19 @@ export default function Home() {
   const t = (key) => translations[language][key] || key;
 
   const renderPromptBoxes = () => {
-    if (!showPromptBoxes) return null;
+    if (!showPromptBoxes || selectedPrompt) return null;
 
     return React.createElement('div', { className: "grid grid-cols-2 gap-4 mb-8 max-w-lg mx-auto" },
       promptBoxes.map((box, index) => 
         React.createElement('button', {
           key: index,
           onClick: () => handlePromptClick(box.text),
-          className: "bg-[#161616] hover:bg-[#2b2b2b] text-white p-3 rounded-lg flex flex-col items-center justify-center transition duration-300 h-24"
+          className: `bg-[#161616] hover:bg-[#2b2b2b] text-white p-3 rounded-lg flex flex-col items-center justify-center transition duration-300 h-24 ${selectedPrompt === box.text ? 'ring-2 ring-blue-500' : ''}`
         }, [
           React.createElement('div', { className: "text-xl mb-2", key: 'icon' }, box.icon),
-          React.createElement('p', { className: "text-xs text-center", key: 'text' }, t(box.text))
+          React.createElement('p', { className: "text-xs text-center", key: 'text' }, 
+            selectedPrompt === box.text ? loadingDots : t(box.text)
+          )
         ])
       )
     );
@@ -369,13 +387,15 @@ export default function Home() {
           React.createElement('div', {
             className: `max-w-[70%] p-3 rounded-sm ${
               chatItem.role === 'user' ? 'bg-[#3a3a3a] text-white' : 'bg-[#2b2b2b] text-white'
-            }`
+            } ${language === 'ar' ? 'text-right' : ''}`
           }, renderFormattedMessage(chatItem.parts))
         )
       ),
       isLoading && React.createElement('div', { className: "flex justify-start" },
-        React.createElement('div', { className: "bg-[#2b2b2b] text-white p-3 rounded-sm" },
-          `${t('thinking')}${loadingDots}`
+        React.createElement('div', { 
+          className: `bg-[#2b2b2b] text-white p-3 rounded-sm ${language === 'ar' ? 'text-right' : ''}`
+        },
+          loadingDots
         )
       ),
       React.createElement('div', { ref: chatEndRef })
@@ -390,10 +410,11 @@ export default function Home() {
       React.createElement('input', {
         value: value,
         onChange: (e) => setValue(e.target.value),
-        className: "flex-grow p-3 bg-[#2b2b2b] text-white border border-[#3a3a3a] rounded-sm focus:outline-none focus:ring-2 focus:ring-[#4a4a4a]",
+        className: `flex-grow p-3 bg-[#2b2b2b] text-white border border-[#3a3a3a] rounded-sm focus:outline-none focus:ring-2 focus:ring-[#4a4a4a] ${language === 'ar' ? 'text-right' : ''}`,
         placeholder: t('typeMessage'),
         id: "message-input",
-        key: 'input'
+        key: 'input',
+        dir: language === 'ar' ? 'rtl' : 'ltr'
       }),
       React.createElement('button', {
         type: "submit",
@@ -456,7 +477,7 @@ export default function Home() {
       key: 'langToggle'
     }, React.createElement(FaLanguage, { className: "w-6 h-6" })),
     showLanguageDropdown && React.createElement('div', {
-      className: "absolute top-16 right-4 mt-2 py-2 w-48 bg-[#2b2b2b] rounded-sm shadow-xl z-20"
+      className: "absolute top-16 right-4 mt-2 py-2 w-24 bg-[#2b2b2b] rounded-sm shadow-xl z-20"
     }, [
       React.createElement('button', {
         className: "block px-4 py-2 text-sm capitalize text-white hover:bg-[#3a3a3a] w-full text-left",
@@ -485,7 +506,7 @@ export default function Home() {
           React.createElement('div', { className: "mb-8", key: 'welcome' },
             React.createElement('p', { className: "text-4xl font-bold text-gray-300 text-center" }, t('welcome'))
           ),
-          renderPromptBoxes(),
+          showPromptBoxes && !selectedPrompt && renderPromptBoxes(),
           renderChatHistory()
         ])
       ),
